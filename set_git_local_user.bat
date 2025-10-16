@@ -29,8 +29,8 @@ if errorlevel 1 (
 )
 
 REM ---- Установка локального пользователя ----
-git config user.name "%GIT_USER%"
-git config user.email "%GIT_EMAIL%"
+git config --local user.name "%GIT_USER%"
+git config --local user.email "%GIT_EMAIL%"
 
 echo Local Git user for THIS repository set successfully:
 echo   user.name  = %GIT_USER%
