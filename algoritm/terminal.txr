@@ -1,0 +1,120 @@
+PS C:\Users\VadoooS_S\Documents\уник1курс> cd .\algoritm\
+PS C:\Users\VadoooS_S\Documents\уник1курс\algoritm> echo "Первый файл на ветке main" > file_main.txt
+PS C:\Users\VadoooS_S\Documents\уник1курс\algoritm> git add file_main.txt
+PS C:\Users\VadoooS_S\Documents\уник1курс\algoritm> git commit -m "Initial commit on main"
+[main bf6d438] Initial commit on main
+ 1 file changed, 0 insertions(+), 0 deletions(-)
+ create mode 100644 algoritm/file_main.txt
+PS C:\Users\VadoooS_S\Documents\уник1курс\algoritm> git checkout -b new
+>> echo "Версия файла из ветки new" > conflict.txt
+>> git add conflict.txt
+>> git commit -m "Add conflict file on new"
+>>
+Switched to a new branch 'new'
+[new efe76b3] Add conflict file on new
+ 1 file changed, 0 insertions(+), 0 deletions(-)
+ create mode 100644 algoritm/conflict.txt
+PS C:\Users\VadoooS_S\Documents\уник1курс\algoritm> git checkout main
+>> echo "Версия файла из ветки main" > conflict.txt
+>> git add conflict.txt
+>> git commit -m "Add conflict file on main"
+>>
+Switched to branch 'main'
+Your branch is ahead of 'origin/main' by 1 commit.
+  (use "git push" to publish your local commits)
+[main 5c18377] Add conflict file on main
+ 1 file changed, 0 insertions(+), 0 deletions(-)
+ create mode 100644 algoritm/conflict.txt
+PS C:\Users\VadoooS_S\Documents\уник1курс\algoritm> echo "Изменённая версия файла на main" > conflict.txt
+>> git add conflict.txt
+>> git commit -m "Change conflict file on main"
+>>
+[main d453d3a] Change conflict file on main
+ 1 file changed, 0 insertions(+), 0 deletions(-)
+PS C:\Users\VadoooS_S\Documents\уник1курс\algoritm> git merge new
+>>
+warning: Cannot merge binary files: algoritm/conflict.txt (HEAD vs. new)
+Auto-merging algoritm/conflict.txt
+CONFLICT (add/add): Merge conflict in algoritm/conflict.txt
+Automatic merge failed; fix conflicts and then commit the result.
+PS C:\Users\VadoooS_S\Documents\уник1курс\algoritm> git checkout new 
+algoritm/conflict.txt: needs merge                 
+error: you need to resolve your current index first
+PS C:\Users\VadoooS_S\Documents\уник1курс\algoritm> git checkout main
+Already on 'main'
+Your branch is ahead of 'origin/main' by 3 commits.
+  (use "git push" to publish your local commits)
+PS C:\Users\VadoooS_S\Documents\уник1курс\algoritm> git merge new    
+>>
+warning: Cannot merge binary files: algoritm/conflict.txt (HEAD vs. new)
+Auto-merging algoritm/conflict.txt
+CONFLICT (add/add): Merge conflict in algoritm/conflict.txt
+Automatic merge failed; fix conflicts and then commit the result.
+PS C:\Users\VadoooS_S\Documents\уник1курс\algoritm> cat .\conflict.txt
+Изменённая версия файла на main
+PS C:\Users\VadoooS_S\Documents\уник1курс\algoritm> git checkout new
+algoritm/conflict.txt: needs merge
+error: you need to resolve your current index first
+PS C:\Users\VadoooS_S\Documents\уник1курс\algoritm> cat .\conflict.txt
+Изменённая версия файла на main
+PS C:\Users\VadoooS_S\Documents\уник1курс\algoritm> git status
+On branch main
+Your branch is ahead of 'origin/main' by 3 commits.
+  (use "git push" to publish your local commits)
+
+You have unmerged paths.
+  (fix conflicts and run "git commit")
+  (use "git merge --abort" to abort the merge)
+
+Unmerged paths:
+  (use "git add <file>..." to mark resolution)
+        both added:      conflict.txt
+
+no changes added to commit (use "git add" and/or "git commit -a")
+PS C:\Users\VadoooS_S\Documents\уник1курс\algoritm> git checkout new  
+algoritm/conflict.txt: needs merge
+error: you need to resolve your current index first
+PS C:\Users\VadoooS_S\Documents\уник1курс\algoritm> git checkout main 
+algoritm/conflict.txt: needs merge
+error: you need to resolve your current index first
+PS C:\Users\VadoooS_S\Documents\уник1курс\algoritm> git add .\conflict.txt
+PS C:\Users\VadoooS_S\Documents\уник1курс\algoritm> git commit -m "commit edit conflict files"  
+[main d0d18bb] commit edit conflict files
+PS C:\Users\VadoooS_S\Documents\уник1курс\algoritm> git log --oneline --graph --all > log_graph.txt
+>>
+PS C:\Users\VadoooS_S\Documents\уник1курс\algoritm> git checkout new
+>> git checkout -b new2
+>>
+>> echo "Файл для ветки new2" > new2.txt
+>> git add new2.txt
+>> git commit -m "Add new2 file"
+>>
+>> echo "Изменённый файл в new2" >> new2.txt
+>> git add new2.txt
+>> git commit -m "Update new2 file"
+>>
+Switched to branch 'new'
+Switched to a new branch 'new2'
+[new2 82841ec] Add new2 file
+ 1 file changed, 0 insertions(+), 0 deletions(-)
+ create mode 100644 algoritm/new2.txt
+[new2 a4e17fb] Update new2 file
+ 1 file changed, 0 insertions(+), 0 deletions(-)
+PS C:\Users\VadoooS_S\Documents\уник1курс\algoritm> git revert HEAD
+[new2 0601612] Revert "edit Update new2 file"
+ 1 file changed, 0 insertions(+), 0 deletions(-)
+PS C:\Users\VadoooS_S\Documents\уник1курс\algoritm> git checkout new2
+>> git rebase main
+Already on 'new2'
+Successfully rebased and updated refs/heads/new2.
+PS C:\Users\VadoooS_S\Documents\уник1курс\algoritm> git checkout main
+>> git merge new2 --ff-only
+Switched to branch 'main'
+Your branch is ahead of 'origin/main' by 5 commits.
+  (use "git push" to publish your local commits)
+Updating d0d18bb..5dca97b
+Fast-forward
+ algoritm/new2.txt | Bin 0 -> 44 bytes
+ 1 file changed, 0 insertions(+), 0 deletions(-)
+ create mode 100644 algoritm/new2.txt
+PS C:\Users\VadoooS_S\Documents\уник1курс\algoritm> git log --oneline --graph --all > log_graph_rebase.txt
