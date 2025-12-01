@@ -1,4 +1,3 @@
-````markdown
 # Лабораторная работа: hexdump, strings, grep, tr и работа с процессами
 
 ## 1. Просмотр содержимого бинарного файла `/bin/tar` с помощью `hexdump` и `strings`
@@ -7,7 +6,7 @@
 
 ```bash
 hexdump -C /bin/tar | less
-````
+```
 
 Фрагмент вывода:
 
