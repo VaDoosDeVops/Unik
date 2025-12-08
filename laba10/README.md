@@ -6,8 +6,6 @@
 
 ```sh
 stat --help
-man stat
-info coreutils 'stat invocation'
 ```
 
 ---
