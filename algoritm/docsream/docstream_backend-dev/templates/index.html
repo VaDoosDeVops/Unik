@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Comparison Tool</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.1/css/bootstrap.min.css">
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+
+        .container {
+            margin-top: 50px;
+        }
+
+        .file-inputs {
+            margin-bottom: 20px;
+        }
+
+        .result-container {
+            margin-top: 30px;
+        }
+    </style>
+
+</head>
+<body>
+<div class="container">
+    <h1 class="text-center">File Comparison Tool</h1>
+    <div class="row file-inputs">
+        <div class="col-md-6">
+            <label for="file1" class="form-label">Choose the first file:</label>
+            <input class="form-control" type="file" id="file1" name="file1">
+        </div>
+        <div class="col-md-6">
+            <label for="file2" class="form-label">Choose the second file:</label>
+            <input class="form-control" type="file" id="file2" name="file2">
+        </div>
+    </div>
+    <button class="btn btn-primary" id="compareBtn" onclick="compareFiles();">Compare Files</button>
+    <div class="result-container">
+        <h2 class="text-center">Comparison Results</h2>
+        <div id="results" class="row"></div>
+    </div>
+</div>
+<script type="text/javascript">
+    async function uploadFile(file) {
+        const formData = new FormData();
+        formData.append('file', file);
+        const response = await fetch('/upload', {
+            method: 'POST',
+            body: formData
+        });
+        const data = await response.json();
+        return data.filename;
+    }
+
+    async function compareFiles() {
+        const file1 = document.getElementById('file1').files[0];
+        const file2 = document.getElementById('file2').files[0];
+
+        if (!file1 || !file2) {
+            alert('Please select both files');
+            return;
+        }
+
+        const filename1 = await uploadFile(file1);
+        const filename2 = await uploadFile(file2);
+
+        const response = await fetch("/compare?file1=" + filename1 + "&file2=" + filename2);
+        if (response.status !== 200) {
+            const errorText = await response.text();
+            alert('Error: ' + errorText);
+            return;
+        }
+
+        const data = await response.json();
+        displayResults(data);
+    }
+
+    function displayResults(data) {
+        const resultsDiv = document.getElementById('results');
+        resultsDiv.innerHTML = `<div>
+            <div class="col-md-6">
+                <h4>File 1: ${data.filename1}</h4>
+                <div>
+                    ${data.result1}
+                </div>
+
+            </div>
+            <br>
+            <br>
+            <div class="col-md-6">
+                <h4>File 2: ${data.filename2}</h4>
+                <div>
+                    ${data.result2}
+                </div>
+            </div>
+        </div>`
+        ;
+    }
+</script>
+</body>
+</html>

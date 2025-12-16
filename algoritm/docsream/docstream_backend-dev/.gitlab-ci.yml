@@ -1,0 +1,138 @@
+stages:
+  - test
+  - build
+#   - variables
+  - deploy
+
+semgrep:
+ stage: test
+ when: manual
+ image: semgrep/semgrep
+ variables:
+   FILE_REPORT: gl-sast-report.json
+   SEMGREP_RULES: >-
+    https://semgrep.dev/r?q=python.aws-lambda.security.dangerous-asyncio-shell.dangerous-asyncio-shell
+ tags: [n2-runner]
+ script:
+   - semgrep ci --gitlab-sast > $FILE_REPORT || true
+   - apk add jq bash coreutils
+   - bash .gitlab/scripts/sast.sh
+ artifacts:
+   reports:
+     sast: $FILE_REPORT
+
+
+build_dev:
+  stage: build
+  tags: [n5-runner]
+  only: [dev]
+  environment: dev
+  when: manual
+  before_script:
+    - docker images
+  script:
+#    - chmod +x ./gradlew
+#    - TIMESTAMP=$(date +%Y%m%d%H%M%S)
+    - docker build --no-cache -f ./Dockerfile -t ${IMAGE_NAME}:${CI_COMMIT_SHORT_SHA} .
+    - cat ${AUTHORIZED_KEY} | docker login --username json_key --password-stdin cr.yandex
+    - docker push ${IMAGE_NAME}:${CI_COMMIT_SHORT_SHA}
+    - docker system prune -fa
+build_prod:
+  stage: build
+  tags: [n5-runner]
+  only: [master]
+  environment: prod
+  when: always
+  before_script:
+    - docker images
+  script:
+#    - chmod +x ./gradlew
+#    - TIMESTAMP=$(date +%Y%m%d%H%M%S)
+    - docker build --no-cache -f ./Dockerfile -t ${IMAGE_NAME}:${CI_COMMIT_SHORT_SHA} .
+    - cat ${AUTHORIZED_KEY} | docker login --username json_key --password-stdin cr.yandex
+    - docker push ${IMAGE_NAME}:${CI_COMMIT_SHORT_SHA}
+
+# push_variables:
+#   stage: variables
+#   tags: [n2-runner]
+#   when: manual
+#   image: jitesoft/alpine-ssh
+#   before_script:
+#     - apk add --no-cache openssh-client
+#     - 'which ssh-agent || ( apt-get update -y && apt-get install openssh-client -y )'
+#     - eval $(ssh-agent -s)
+#     - echo "$FACEBANK_PREVIEW_GENERATOR_SERVER_KEY" | tr -d '\r' | ssh-add - > /dev/null
+#     - mkdir -p ~/.ssh
+#     - chmod 700 ~/.ssh
+#     - ssh-keyscan $FACEBANK_PREVIEW_GENERATOR_SERVER_IP >> ~/.ssh/known_hosts
+#     - chmod 644 ~/.ssh/known_hosts
+#   script:
+#     - ssh $FACEBANK_SERVER_USER@$FACEBANK_PREVIEW_GENERATOR_SERVER_IP "echo 'Hello, remote server!'"
+#     - scp ${SECRET_TO_ENV_FILE} $FACEBANK_SERVER_USER@$FACEBANK_PREVIEW_GENERATOR_SERVER_IP:~/
+#     - ssh $FACEBANK_SERVER_USER@$FACEBANK_PREVIEW_GENERATOR_SERVER_IP "mv SECRET_TO_ENV_FILE secret_to_env.py"
+#     - ssh $FACEBANK_SERVER_USER@$FACEBANK_PREVIEW_GENERATOR_SERVER_IP "head -n 1 .env | tee .env > /dev/null"
+#     - cp ${PRIVATE_KEY} key.txt
+#     - scp key.txt $FACEBANK_SERVER_USER@$FACEBANK_PREVIEW_GENERATOR_SERVER_IP:~/
+#     - ssh $FACEBANK_SERVER_USER@$FACEBANK_PREVIEW_GENERATOR_SERVER_IP "python3 secret_to_env.py ${SERVICE_ACCOUNT_ID} ${SERVICE_KEY_ID} key.txt ${GLOBAL_SECRET_ID} ${ENV_SECRET_ID}"
+
+
+deploy_alert:
+  stage: deploy
+  tags: [shell-runner]
+  when: manual
+  script:
+    - sh ${ALERT_BOT}
+    
+deploy_dev:
+  stage: deploy
+  tags: [n5-runner]
+  only: [dev]
+  environment: dev
+  when: manual
+  image: jitesoft/alpine-ssh
+  before_script:
+    - apk add --no-cache openssh-client
+    - 'which ssh-agent || ( apt-get update -y && apt-get install openssh-client -y )'
+    - eval $(ssh-agent -s)
+    - echo "$SERVER_KEY" | tr -d '\r' | ssh-add - > /dev/null
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    - ssh-keyscan $SERVER_IP >> ~/.ssh/known_hosts
+    - chmod 644 ~/.ssh/known_hosts
+  script:
+    - ssh $SERVER_USER@$SERVER_IP "echo 'Hello, remote server!'"
+    # - ssh $FACEBANK_SERVER_USER@$FACEBANK_PREVIEW_GENERATOR_SERVER_IP "rm docker-compose-prod.yml"
+    # - scp ./docker/docker-compose-prod.yml $FACEBANK_SERVER_USER@$FACEBANK_PREVIEW_GENERATOR_SERVER_IP:~/
+    - ssh $SERVER_USER@$SERVER_IP "docker pull ${IMAGE_NAME}:${CI_COMMIT_SHORT_SHA}"
+    - ssh $SERVER_USER@$SERVER_IP "sed -i 's/^DOCSTREAMBACK=.*/DOCSTREAMBACK=${CI_COMMIT_SHORT_SHA}/' .env"
+    - ssh $SERVER_USER@$SERVER_IP "docker compose down && docker compose up -d"
+    - ssh $SERVER_USER@$SERVER_IP "docker system prune -fa"
+
+deploy_prod:
+  stage: deploy
+  tags: [n5-runner]
+  only: [master]
+  environment: prod
+  when: manual
+  image: jitesoft/alpine-ssh
+  before_script:
+    - apk add --no-cache openssh-client
+    - 'which ssh-agent || ( apt-get update -y && apt-get install openssh-client -y )'
+    - eval $(ssh-agent -s)
+    - echo "$SERVER_KEY" | tr -d '\r' | ssh-add - > /dev/null
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    - ssh-keyscan $SERVER_IP >> ~/.ssh/known_hosts
+    - chmod 644 ~/.ssh/known_hosts
+  script:
+    - ssh $SERVER_USER@$SERVER_IP "echo 'Hello, remote server!'"
+    # - ssh $FACEBANK_SERVER_USER@$FACEBANK_PREVIEW_GENERATOR_SERVER_IP "rm docker-compose-prod.yml"
+    # - scp ./docker/docker-compose-prod.yml $FACEBANK_SERVER_USER@$FACEBANK_PREVIEW_GENERATOR_SERVER_IP:~/
+    - ssh $SERVER_USER@$SERVER_IP "docker pull ${IMAGE_NAME}:${CI_COMMIT_SHORT_SHA}"
+#    - ssh $FACEBANK_SERVER_USER@$FACEBANK_PREVIEW_GENERATOR_SERVER_IP "echo "TAGGEN=${CI_COMMIT_SHORT_SHA}" >> .env"
+    - ssh $SERVER_USER@$SERVER_IP "sed -i 's/^DOCSTREAMBACK=.*/DOCSTREAMBACK=${CI_COMMIT_SHORT_SHA}/' .env"
+    - ssh $SERVER_USER@$SERVER_IP "docker compose down && docker compose up -d"
+
+
+
+
