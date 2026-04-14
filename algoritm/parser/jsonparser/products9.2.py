@@ -1,10 +1,8 @@
 import json
 
-# Чтение файла
-with open("products.json", "r", encoding="utf-8") as file:
+with open("algoritm/parser/jsonparser/products.json", "r", encoding="utf-8") as file:
     data = json.load(file)
 
-# Ввод данных от пользователя
 name = input("Введите название: ")
 price = int(input("Введите цену: "))
 weight = int(input("Введите вес: "))
@@ -21,7 +19,7 @@ new_product = {
 
 data["products"].append(new_product)
 
-with open("products.json", "w", encoding="utf-8") as file:
+with open("algoritm/parser/jsonparser/products.json", "w", encoding="utf-8") as file:
     json.dump(data, file, ensure_ascii=False, indent=4)
 
 print("\nОбновленный список:\n")

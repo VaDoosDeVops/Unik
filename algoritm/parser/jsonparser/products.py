@@ -1,6 +1,6 @@
 import json
 
-with open("products.json", "r", encoding="utf-8") as file:
+with open("algoritm/parser/jsonparser/products.json", "r", encoding="utf-8") as file:
     data = json.load(file)
 
 for product in data["products"]:
