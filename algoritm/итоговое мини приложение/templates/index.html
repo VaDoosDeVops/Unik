@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Магазины после 21:00</title>
+    <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+    <div class="container">
+        <h1>Магазины рядом после 21:00</h1>
+        <p>Найди ближайшие открытые магазины и точки выдачи после 21:00.</p>
+
+        <div class="controls">
+            <div class="row">
+                <label for="lat">Широта</label>
+                <input id="lat" type="number" step="0.000001" placeholder="Введите широту" />
+            </div>
+            <div class="row">
+                <label for="lon">Долгота</label>
+                <input id="lon" type="number" step="0.000001" placeholder="Введите долготу" />
+            </div>
+            <div class="row">
+                <label for="radius">Радиус (м)</label>
+                <input id="radius" type="number" min="300" value="2000" />
+            </div>
+            <div class="buttons">
+                <button id="geoButton">Использовать текущее местоположение</button>
+                <button id="searchButton">Найти магазины</button>
+            </div>
+        </div>
+
+        <div id="message" class="message"></div>
+        <div id="results" class="results"></div>
+    </div>
+
+    <script>
+        const latInput = document.getElementById('lat');
+        const lonInput = document.getElementById('lon');
+        const radiusInput = document.getElementById('radius');
+        const messageBox = document.getElementById('message');
+        const resultsBox = document.getElementById('results');
+        const searchButton = document.getElementById('searchButton');
+        const geoButton = document.getElementById('geoButton');
+
+        function showMessage(text, isError = false) {
+            messageBox.textContent = text;
+            messageBox.className = isError ? 'message error' : 'message';
+        }
+
+        function renderResults(items) {
+            if (!items.length) {
+                resultsBox.innerHTML = '<p class="empty">Магазины не найдены.</p>';
+                return;
+            }
+            resultsBox.innerHTML = items.map(item => {
+                const tags = [];
+                if (item.tags.name) tags.push(`<strong>${item.tags.name}</strong>`);
+                if (item.tags['addr:street']) tags.push(`${item.tags['addr:street']} ${item.tags['addr:housenumber'] || ''}`.trim());
+                if (item.tags.opening_hours) tags.push(`<span class="hours">Часы: ${item.tags.opening_hours}</span>`);
+                return `
+                    <div class="card">
+                        <div class="card-header">${tags.join(' · ')}</div>
+                        <div class="card-body">
+                            <div>Тип: ${item.tags.shop || item.tags.amenity || 'магазин'}</div>
+                            <div>Расстояние: ${item.distance ? item.distance.toFixed(0) + ' м' : '—'}</div>
+                            ${item.tags.website ? `<div><a href="${item.tags.website}" target="_blank">Сайт</a></div>` : ''}
+                            ${item.tags.phone ? `<div>Телефон: ${item.tags.phone}</div>` : ''}
+                        </div>
+                    </div>`;
+            }).join('');
+        }
+
+        async function searchShops() {
+            const lat = parseFloat(latInput.value);
+            const lon = parseFloat(lonInput.value);
+            const radius = parseInt(radiusInput.value, 10) || 2000;
+            if (Number.isNaN(lat) || Number.isNaN(lon)) {
+                showMessage('Укажите широту и долготу.', true);
+                return;
+            }
+
+            showMessage('Ищем магазины...');
+            resultsBox.innerHTML = '';
+            try {
+                const response = await fetch(`/api/shops?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&radius=${encodeURIComponent(radius)}`);
+                if (!response.ok) throw new Error('Ошибка сервера');
+                const data = await response.json();
+                if (data.error) throw new Error(data.error);
+                showMessage(`Найдено ${data.shops.length} магазина(ов) после 21:00.`);
+                renderResults(data.shops);
+            } catch (error) {
+                showMessage(error.message || 'Ошибка при поиске.', true);
+            }
+        }
+
+        function useGeolocation() {
+            if (!navigator.geolocation) {
+                showMessage('Геолокация недоступна в браузере.', true);
+                return;
+            }
+            showMessage('Определяем координаты...');
+            navigator.geolocation.getCurrentPosition(
+                position => {
+                    latInput.value = position.coords.latitude.toFixed(6);
+                    lonInput.value = position.coords.longitude.toFixed(6);
+                    showMessage('Координаты получены. Нажмите «Найти магазины».');
+                },
+                () => showMessage('Не удалось получить местоположение.', true),
+                { timeout: 10000 }
+            );
+        }
+
+        searchButton.addEventListener('click', searchShops);
+        geoButton.addEventListener('click', useGeolocation);
+    </script>
+</body>
+</html>
