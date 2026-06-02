@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Магазины после 21:00</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="/static/style.css" />
 </head>
 <body>
@@ -31,9 +32,11 @@
         </div>
 
         <div id="message" class="message"></div>
+        <div id="map" class="map"></div>
         <div id="results" class="results"></div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
         const latInput = document.getElementById('lat');
         const lonInput = document.getElementById('lon');
@@ -42,6 +45,25 @@
         const resultsBox = document.getElementById('results');
         const searchButton = document.getElementById('searchButton');
         const geoButton = document.getElementById('geoButton');
+        const mapElement = document.getElementById('map');
+
+        let map;
+        let markersLayer;
+        let routeLayer;
+        let userMarker;
+        let currentPosition = null;
+        let mapReady = false;
+
+        function initMap() {
+            map = L.map(mapElement, { zoomControl: true }).setView([59.923006, 30.308872], 12);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap contributors'
+            }).addTo(map);
+            markersLayer = L.layerGroup().addTo(map);
+            routeLayer = L.layerGroup().addTo(map);
+            mapReady = true;
+            setTimeout(() => map.invalidateSize(), 100);
+        }
 
         function showMessage(text, isError = false) {
             messageBox.textContent = text;
@@ -51,15 +73,18 @@
         function renderResults(items) {
             if (!items.length) {
                 resultsBox.innerHTML = '<p class="empty">Магазины не найдены.</p>';
+                if (markersLayer) markersLayer.clearLayers();
+                if (routeLayer) routeLayer.clearLayers();
                 return;
             }
-            resultsBox.innerHTML = items.map(item => {
+
+            resultsBox.innerHTML = items.map((item, index) => {
                 const tags = [];
                 if (item.tags.name) tags.push(`<strong>${item.tags.name}</strong>`);
                 if (item.tags['addr:street']) tags.push(`${item.tags['addr:street']} ${item.tags['addr:housenumber'] || ''}`.trim());
                 if (item.tags.opening_hours) tags.push(`<span class="hours">Часы: ${item.tags.opening_hours}</span>`);
                 return `
-                    <div class="card">
+                    <div class="card" data-lat="${item.lat || ''}" data-lon="${item.lon || ''}" data-index="${index}">
                         <div class="card-header">${tags.join(' · ')}</div>
                         <div class="card-body">
                             <div>Тип: ${item.tags.shop || item.tags.amenity || 'магазин'}</div>
@@ -69,6 +94,70 @@
                         </div>
                     </div>`;
             }).join('');
+
+            document.querySelectorAll('.card').forEach(card => {
+                card.addEventListener('click', () => {
+                    const lat = parseFloat(card.dataset.lat);
+                    const lon = parseFloat(card.dataset.lon);
+                    if (!Number.isNaN(lat) && !Number.isNaN(lon)) {
+                        drawRouteTo([lat, lon]);
+                    }
+                });
+            });
+        }
+
+        function updateMapItems(items) {
+            if (!mapReady) return;
+            if (markersLayer) markersLayer.clearLayers();
+            if (routeLayer) routeLayer.clearLayers();
+            if (currentPosition) {
+                if (userMarker) {
+                    userMarker.setLatLng(currentPosition);
+                } else if (markersLayer) {
+                    userMarker = L.marker(currentPosition, { title: 'Вы здесь', icon: L.icon({ iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png', iconSize: [25, 41], iconAnchor: [12, 41] }) }).addTo(markersLayer);
+                }
+            }
+
+            items.forEach(item => {
+                if (item.lat == null || item.lon == null) return;
+                const marker = L.marker([item.lat, item.lon], { title: item.tags.name || item.tags.shop || item.tags.amenity || 'магазин' });
+                marker.bindPopup(`
+                    <strong>${item.tags.name || item.tags.shop || item.tags.amenity || 'Магазин'}</strong><br/>
+                    ${item.tags['addr:street'] || ''} ${item.tags['addr:housenumber'] || ''}<br/>
+                    ${item.tags.opening_hours || ''}
+                `);
+                marker.addTo(markersLayer);
+            });
+
+            const bounds = L.latLngBounds(items.filter(item => item.lat != null && item.lon != null).map(item => [item.lat, item.lon]));
+            if (currentPosition) {
+                bounds.extend(currentPosition);
+            }
+            if (bounds.isValid()) {
+                map.fitBounds(bounds.pad(0.3));
+            }
+        }
+
+        async function drawRouteTo(destination) {
+            if (!mapReady) return;
+            if (routeLayer) routeLayer.clearLayers();
+            if (!currentPosition) return;
+            const [destLat, destLon] = destination;
+            const [srcLat, srcLon] = currentPosition;
+            const url = `https://router.project-osrm.org/route/v1/driving/${srcLon},${srcLat};${destLon},${destLat}?overview=full&geometries=geojson`;
+            try {
+                const result = await fetch(url);
+                if (!result.ok) throw new Error('Не удалось получить маршрут.');
+                const data = await result.json();
+                if (!data.routes || !data.routes.length) throw new Error('Маршрут не найден.');
+                const route = data.routes[0];
+                const routeLine = L.geoJSON(route.geometry, { style: { color: '#2563eb', weight: 5, opacity: 0.8 } });
+                routeLayer.addLayer(routeLine);
+                const routeBounds = routeLine.getBounds();
+                map.fitBounds(routeBounds.pad(0.2));
+            } catch (error) {
+                showMessage(error.message || 'Ошибка построения маршрута.', true);
+            }
         }
 
         async function searchShops() {
@@ -80,6 +169,7 @@
                 return;
             }
 
+            currentPosition = [lat, lon];
             showMessage('Ищем магазины...');
             resultsBox.innerHTML = '';
             try {
@@ -89,6 +179,7 @@
                 if (data.error) throw new Error(data.error);
                 showMessage(`Найдено ${data.shops.length} магазина(ов) после 21:00.`);
                 renderResults(data.shops);
+                updateMapItems(data.shops);
             } catch (error) {
                 showMessage(error.message || 'Ошибка при поиске.', true);
             }
@@ -104,6 +195,10 @@
                 position => {
                     latInput.value = position.coords.latitude.toFixed(6);
                     lonInput.value = position.coords.longitude.toFixed(6);
+                    currentPosition = [position.coords.latitude, position.coords.longitude];
+                    if (map) {
+                        map.setView(currentPosition, 13);
+                    }
                     showMessage('Координаты получены. Нажмите «Найти магазины».');
                 },
                 () => showMessage('Не удалось получить местоположение.', true),
@@ -113,6 +208,13 @@
 
         searchButton.addEventListener('click', searchShops);
         geoButton.addEventListener('click', useGeolocation);
+        window.addEventListener('load', () => {
+            if (typeof L === 'undefined') {
+                showMessage('Не удалось загрузить библиотеку карт Leaflet.', true);
+                return;
+            }
+            initMap();
+        });
     </script>
 </body>
 </html>
